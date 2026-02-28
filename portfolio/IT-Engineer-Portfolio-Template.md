@@ -1,0 +1,270 @@
+# 📋 IT 엔지니어 포트폴리오
+
+---
+
+## 1. 프로필 (Profile)
+
+```
+이름: 심재엽
+현재 직책: SRE/사내 협업시스템, 오픈소스 관리
+소속 회사: 케이뱅크
+경력 연수: 4년
+이메일: elapid0212@gmail.com
+GitHub: https://github.com/SJaeYub
+```
+
+> **한 줄 소개**: "금융권 인터넷 뱅크에서 백엔드 개발부터 SRE, 클라우드 인프라, 오픈소스 관리까지 경험한 풀스택 인프라 엔지니어"
+
+---
+
+## 2. 핵심 기술 스택 (Tech Stack)
+
+| 분류                            | 기술 / 도구                                                                                       |
+|-------------------------------|-----------------------------------------------------------------------------------------------|
+| **Backend**                   | Java, Spring Boot, Python, BXM framework                                                      |
+| **DB**                        | MySQL, Oracle, PostgreSQL, AWS RDS                                                            |
+| **Container & Orchestration** | Docker, Kubernetes, Helm                                                                      |
+| **Private Cloud**             | OpenStack, VMware, OCP, PaaX                                                                  |
+| **Public Cloud**              | AWS, GCP                                                                                      |
+| **Open Source**               | Kafka, Redis, Elasticsearch Opentelemetry                                                     |
+| **SRE / Monitoring**          | Prometheus, Grafana, ELK Stack, Loki, Alloy, Promtail, NodeExporter, Jennifer, Whatap, Fluent |
+| **CI/CD**                     | Jenkins, GitLab CI, ArgoCD, ArgoWorkflow, GitHub, Gitea, Bamboo, BitBucket                    |
+| **협업 도구**                   | Confluence, Jira, Cous, Smartway                                                              |
+| **기타**                        | Ansible, Terraform                                                                            |
+
+---
+
+## 3. 경력 사항 (Work Experience)
+
+### 🏦 케이뱅크 — *SRE*
+**기간**: 2024.07 ~ 현재
+
+**담당 업무 요약**:
+- 오픈소스 관리: _Gitlab, Jenkins, Loki, Prometheus, Grafana, Nginx 등 사내 오픈소스 전체 관리 및 운영_
+- 컨테이너 플랫폼 관리: _사내 서비스 Dcoker, MSA 서비스 EKS 플랫폼 운영_
+- SRE: _케이뱅크 MSA 서비스 SRE 담당 alc DevOps 엔지니어 겸임_
+- Confluence / Jira 관리: _전사 협업 시스템 관리자 및 애자일 배포 프로세스 구성_
+
+**주요 성과**:
+- [ ] _협업시스템(Jira)과 GitLab, 사내 ITSM을 결합한 애자일 시스템 구성_
+- [ ] _기존 레거시 시스템 EKS 컨테이너 전환_
+- [ ] _MSA 서비스 모니터링 시스템 개선_
+- [ ] _공통 EKS 생성으로 비용 절감 및 관리 포인트 감소_
+- [ ] _Harbor 레지스트리 도입으로 이미지 관리 개선_
+
+---
+
+### 🏦 롯데이노베이트 — *롯데카드 마이데이터 서비스 개발 및 채널계 클러스터 운영*
+**기간**: 2022.03 ~ 2024.06
+
+**담당 업무 요약**:
+- 백엔드 개발: _마이데이터 사업자 서비스 백엔드 전체 개발_
+- 프라이빗 클라우드 관리: _OCP(OpenShift), PX(PaasXpert)_
+- 사내 오픈소스 관리: _gitea, harbor, jenkins, ELK_
+- 사내 CICD 관리: _BitBucket, BamBoo를 활용한 채널계 서비스 DevOps 담당_
+
+**주요 성과**:
+- [ ] _마이데이터 사업자 수입/지출 통계 쿼리 개선을 통한 서비스 안정화_
+- [ ] _채널계 클러스터 최적화를 통한 비용 절감_
+
+---
+
+## 4. 프로젝트 (Projects)
+
+### 프로젝트 1: MSA terraform 구조 개선
+
+| 항목 | 내용                |
+|---|-------------------|
+| **기간** | 2026.01 ~ 2026.02 |
+| **역할** | 설계 및 구현           |
+| **소속** | 케이뱅크              |
+
+**배경 (Situation)**:
+> 망분리가 적용된 금융권 특성 상 레거시 영역의 구성을 MSA terraform 코드 내에도 적용하였는데, 이로 인해 중복 코드가 다수 존재_
+
+**목표 (Task)**:
+> 중복 코드를 제거하여 확장성을 높이고, 운영 시 관리 포인트를 개선_
+
+**수행 내용 (Action)**:
+- *terraform 코드*
+- 환경별로 나눠진 중복 코드(backend.tf, main.tf, terraform.auto.tfvars, variables.tf) 파악
+- 기존: msa-dev/backend.tf, main.tf, terraform.auto.tfvars, variables.tf, msa-stg/(이하 동일)
+- 사내 환경에 맞춰 Terraform 공식 권장 구성(main.tf, variables.tf, outpus,tf, versions.tf, terraform.tfvars) 설계
+- 개선: eks-v1/main.tf, variables.tf, output.tf, versions.tf 파일 내에 환경별 구분(terraform 코드 수정은 코드 수정 시 새롭게 짜는 것이 안전, terraform state migration 유발하기 때문)
+- 기존 terraform 리포지토리 아카이브 후 개선 terraform 리포지토리 구성 후 적용
+- *terraform CI*
+- gitlab-ci.yml 내 환경별 중복 및 커밋 메시지를 통한 환경 분리 구조 파악
+- 리포지토리 내에 gitLab components 기능을 활용한 모듈을 정리하고, 필요한 액션만 리포지토리에서 가져와 사용하는 구조로 변경 설계
+- 또한 커밋 메시지를 활용한 환경 구분을 label을 통해 구분하도록 변경 후, ci.yml 내 worklow 항목에 환경별 변수 선언
+
+**결과 (Result)**:
+- [ ] 정량적 성과 _환경별 1000 라인 정도의 terraform 코드를 400~500 라인으로 감소시켰으며 EKS 버전업과 같은 환경별 반복 작업을 단 1회 수정으로 서비스 전체 적용으로 개선_
+- [ ] 정성적 성과 _환경별로 반복되어 불필요한 terraform CI 파이프라인을 간소화하여 CICD에 익숙하지 않은 개발자들 접근성 확보_
+
+**사용 기술**: `Terraforn` `Gitlab` `AWS`
+
+---
+
+### 프로젝트 2: [프로젝트명]
+
+| 항목 | 내용 |
+|---|---|
+| **기간** | 20XX.XX ~ 20XX.XX |
+| **역할** | (예: 설계 / 구현 / 운영) |
+| **소속** | [회사명] |
+
+**배경 (Situation)**:
+> 
+
+**목표 (Task)**:
+> 
+
+**수행 내용 (Action)**:
+- 
+- 
+- 
+
+**결과 (Result)**:
+- [ ] 
+- [ ] 
+
+**사용 기술**: 
+
+---
+
+### 프로젝트 3: SRE 운영 체계 구축
+
+| 항목 | 내용 |
+|---|---|
+| **기간** | 20XX.XX ~ 20XX.XX |
+| **역할** | SRE 엔지니어 |
+| **소속** | [회사명] |
+
+**배경 (Situation)**:
+> _(서비스 장애 대응 체계의 부재 또는 개선 필요성)_
+
+**목표 (Task)**:
+> _(SRE 운영 체계 수립 및 가용성 향상)_
+
+**수행 내용 (Action)**:
+- SLI / SLO / Error Budget 정의 및 적용
+- Alerting 룰셋 설계 및 대시보드 구성
+- Runbook / 장애 대응 플레이북 작성 (Confluence 연동)
+- 사후 분석 (Post-mortem) 프로세스 수립
+- 
+
+**결과 (Result)**:
+- [ ] MTTR (평균 복구 시간) 개선: _(예: XX분 → XX분)_
+- [ ] 장애 건수 감소율: _(예: XX% 감소)_
+- [ ] 
+
+**사용 기술**: `Prometheus` `Grafana` `ELK Stack` _(사용한 기술 태그)_
+
+---
+
+### 프로젝트 4: [프로젝트명]
+
+| 항목 | 내용 |
+|---|---|
+| **기간** | 20XX.XX ~ 20XX.XX |
+| **역할** | |
+| **소속** | [회사명] |
+
+**배경 (Situation)**:
+> 
+
+**목표 (Task)**:
+> 
+
+**수행 내용 (Action)**:
+- 
+- 
+- 
+
+**결과 (Result)**:
+- [ ] 
+- [ ] 
+
+**사용 기술**: 
+
+---
+
+## 5. 자격증 & 교육 (Certifications & Education)
+
+| 항목 | 취득 기관 | 취득일 |
+|---|---|---|
+| (예: CKA - Certified Kubernetes Administrator) | CNCF | 20XX.XX |
+| (예: AWS Solutions Architect) | AWS | 20XX.XX |
+|  |  |  |
+| **학력** | [대학교 / 전공] | 20XX 졸업 |
+
+---
+
+## 6. 오픈소스 기여 & 사내 문서화 (Contributions)
+
+### 오픈소스 기여
+- _(PR, Issue 제보, 패치 등 있으면 링크 포함)_
+- 
+
+### 사내 위키 / Confluence 운영
+- _(페이지 수, 사용자 수, 주요 구조 설계 내용)_
+- 
+
+### Jira 프로세스 설계
+- _(워크플로우 커스터마이징, 프로젝트 운영 방식)_
+- 
+
+### 블로그 / 발표
+- _(개인 기술 블로그, 사내 발표, 외부 컨퍼런스 등)_
+- 
+
+---
+
+## 7. 강점 & 협업 스타일 (Soft Skills)
+
+> 채용 담당자가 "이 사람과 일하면 어떨까?"를 파악하는 섹션입니다.
+
+**문제 해결 방식**:
+> _(예: "장애 발생 시 데이터 기반 원인 분석 후 재발 방지책 문서화")_
+
+**협업 스타일**:
+> _(예: "개발팀과 인프라팀 사이의 브릿지 역할 선호")_
+
+**성장 목표**:
+> _(예: "금융 도메인에 특화된 플랫폼 엔지니어로 성장")_
+
+---
+
+## ✍️ 작성 팁
+
+1. **숫자를 쓰세요** — "개선했다" 보다 "응답시간을 200ms → 80ms로 단축"이 훨씬 강력합니다.
+
+2. **STAR 구조** — 프로젝트마다 상황(S) → 과제(T) → 행동(A) → 결과(R) 흐름을 유지하세요.
+
+3. **금융권 특성 강조** — 보안, 컴플라이언스, 가용성(HA) 관련 경험은 인터넷 뱅크에서 특히 차별점이 됩니다.
+
+4. **기밀 주의** — 회사 내부 시스템명, 수치는 표현 수위를 조절해 기재하세요.
+
+5. **GitHub 연동** — 공개 가능한 스크립트, 헬름차트, 자동화 코드는 GitHub에 올려 링크를 연결하면 신뢰도가 높아집니다.
+
+6. **정량적 지표 활용** — 시스템 가용성, 배포 빈도, MTTR, 비용 절감율 등 구체적 수치로 성과를 표현하세요.
+
+7. **지속적 업데이트** — 새로운 프로젝트나 자격증을 취득할 때마다 업데이트하세요.
+
+---
+
+## 📝 체크리스트
+
+작성 전 아래 항목을 확인하세요:
+
+- [ ] 모든 프로젝트에 정량적 성과가 포함되어 있나요?
+- [ ] 기술 스택이 최신 상태로 업데이트되어 있나요?
+- [ ] 회사 기밀 정보는 제거했나요?
+- [ ] GitHub 링크는 정상 작동하나요?
+- [ ] 맞춤법과 문법을 검토했나요?
+- [ ] PDF로 변환했을 때 레이아웃이 깔끔한가요?
+
+---
+
+**작성일**: 2026.02.28  
+**버전**: 1.0
