@@ -69,32 +69,6 @@ GitHub: https://github.com/SJaeYub
 
 ---
 
-### 개인 프로젝트 1: 알고리즘 트레이딩 시스템 개발
-
-| 항목 | 내용 |
-|---|---|
-| **기간** | 2023.09 ~ 2025.09 |
-| **역할** | |
-| **소속** | [회사명] |
-
-**목표 (Task)**:
-> public cloud에 무중단 서비스를 개발부터 구축하여 24시간 알고리즘으로 매매하는 암호화폐 트레이딩 서비스 개발
-
-**수행 내용 (Action)**:
-- EC2 인스턴스 두 개를 생성하여 WAS와 빌드/배포를 진행할 Jenkins 서버를 설치
-- 로컬 개발 환경으로 VMware를 활용하여 우분투 가상머신을 생성 후, 도커를 설치하여 컨테이너 환경으로 젠킨스, mysql, was를 배포하는 CI/CD 환경을 구축.
-- 서비스 중 메모리가 아닌 DB에 값을 저장해야하는 경우가 발생해 GCP의 Compute Engine을 사용하여 일반 인스턴스에 mysql을 설치하여 DB 스키마를 설계.
-- 클러스터의 안정성 유지를 위하여 CloudWatch 서비스를 활용해 클러스터 모니터링을 진행. 리소스별 임계값을 설정하여 지표가 해당 값을 넘어가면 경보가 발생하도록 하여 즉각적인 대응이 가능하도록 설정.
-- 바이낸스 Open API를 활용하여 AWS EC2에 기동 중인 트레이딩 서버가 24시간 ticker를 조회해 가격과 알고리즘을 계산하고, 매수/매도 신호 발생 시 개인 지갑 정보를 조회하여 사전에 설정한 매수/매도 금액을 입력하여 바이낸스로 주문API를 호출하는 구조로 24시간 무중단으로 운영.
-
-**결과 (Result)**:
-- [ ] 2023.09 ~ 2025.09까지 2년간 트레이딩 적용 및 가이드 문서 작성하여 외부 고객들에게 서비스
-- [ ] https://www.notion.so/BlueFine-275d9865869c80ee99f9f53b34f40285?source=copy_link
-
-**사용 기술**: EC2, Jenkins, tomcat, AWS, GCP, VPC, 오픈 API, CloudWatch, Spring, React
-
----
-
 ## 4. 프로젝트 (Projects)
 
 ### 프로젝트 1: MSA terraform 구조 개선
@@ -329,6 +303,85 @@ GitHub: https://github.com/SJaeYub
 - [ ] 마이데이터 자동차 보험 자산신규 연동 고객에게 리워드를 정상 지급하였으며, 2023.12  마이데이터 사업자 2.0 프로젝트가 오픈하기 전까지 운영.
 
 **사용 기술**: Java, BXM Framework, Spring, Mybatis
+
+---
+
+### 개인 프로젝트 1: 알고리즘 트레이딩 시스템 개발
+
+| 항목 | 내용                |
+|---|-------------------|
+| **기간** | 2023.09 ~ 2025.09 |
+| **역할** | 개발                |
+| **소속** | 개인 프로젝트           |
+
+**목표 (Task)**:
+> public cloud에 무중단 서비스를 개발부터 구축하여 24시간 알고리즘으로 매매하는 암호화폐 트레이딩 서비스 개발
+
+**수행 내용 (Action)**:
+- EC2 인스턴스 두 개를 생성하여 WAS와 빌드/배포를 진행할 Jenkins 서버를 설치
+- 로컬 개발 환경으로 VMware를 활용하여 우분투 가상머신을 생성 후, 도커를 설치하여 컨테이너 환경으로 젠킨스, mysql, was를 배포하는 CI/CD 환경을 구축.
+- 서비스 중 메모리가 아닌 DB에 값을 저장해야하는 경우가 발생해 GCP의 Compute Engine을 사용하여 일반 인스턴스에 mysql을 설치하여 DB 스키마를 설계.
+- 클러스터의 안정성 유지를 위하여 CloudWatch 서비스를 활용해 클러스터 모니터링을 진행. 리소스별 임계값을 설정하여 지표가 해당 값을 넘어가면 경보가 발생하도록 하여 즉각적인 대응이 가능하도록 설정.
+- 바이낸스 Open API를 활용하여 AWS EC2에 기동 중인 트레이딩 서버가 24시간 ticker를 조회해 가격과 알고리즘을 계산하고, 매수/매도 신호 발생 시 개인 지갑 정보를 조회하여 사전에 설정한 매수/매도 금액을 입력하여 바이낸스로 주문API를 호출하는 구조로 24시간 무중단으로 운영.
+- AWS route 53과 ALB를 활용하여 기본적인 AWS Sheild를 사용
+
+**결과 (Result)**:
+- [ ] 2023.09 ~ 2025.09까지 2년간 트레이딩 적용 및 가이드 문서 작성하여 외부 고객들에게 서비스
+- [ ] https://www.notion.so/BlueFine-275d9865869c80ee99f9f53b34f40285?source=copy_link
+
+**사용 기술**: EC2, Jenkins, tomcat, AWS, GCP, VPC, 오픈 API, CloudWatch, Spring, React
+
+---
+
+### 개인 프로젝트 2: AI 기반 카드 혜택 개인화 추천 서비스
+
+
+| 항목 | 내용                |
+|---|-------------------|
+| **기간** | 2025.11 ~ 2026.02 |
+| **역할** | 개발                |
+| **소속** | 개인 프로젝트           |
+
+배경 (Situation):
+> 수많은 신용카드의 복잡한 혜택 체계로 인해 소비자가 특정 가맹점에서 결제 시 어떤 카드를 사용하는 것이 최적인지
+실시간으로 판단하기 어려운 정보 비대칭 문제가 존재함. 이를 해결하기 위해 사용자의 카드 정보를 기반으로 LLM(대형
+언어 모델)이 실시간으로 최적의 혜택을 제안하는 서비스가 필요함.
+
+
+목표 (Task):
+> - 사용자의 위치 및 가맹점 정보를 바탕으로 1초 이내에 최적의 카드를 추천하는 고성능 시스템 구축
+> - 다중 AI 모델(Gemini, GLM 등)을 연동하여 서비스 가용성 및 비용 효율성 확보
+> - 보안이 강화된 JWT 기반 인증 체계와 자동화된 CI/CD 파이프라인 구축을 통한 안정적인 운영 환경 마련
+
+
+수행 내용 (Action):
+- [아키텍처] Java 21 및 Spring Boot 3.2 환경에서 계층화 아키텍처(Controller-Service-Repository)를 적용하여
+  유지보수성이 높은 백엔드 시스템 구축
+- [AI 통합 전략] Strategy Pattern을 활용한 AIProvider 인터페이스를 설계하여 다중 LLM 연동. 특정 모델의 장애나
+  지연(Latency) 발생 시 자동으로 차순위 모델로 전환되는 Fallback 로직 구현
+- [보안] Spring Security와 JWT(Stateless)를 결합하여 보안 수준을 강화하였으며, AOP(Aspect Oriented
+  Programming)를 통한 로깅 시 개인정보(Principal) 자동 마스킹 처리
+- [Frontend] React 19와 TypeScript, Vite를 도입하여 렌더링 성능을 극대화하고, TanStack Query와 Zustand로 서버
+  상태 동기화 및 전역 상태 관리 로직 최적화
+- [운영 자동화] Jenkins와 Docker Compose를 연동하여 빌드-테스트-배포 및 Actuator 기반 Health Check 프로세스를
+  포함한 Full CI/CD 파이프라인 구축
+- [최적화] PWA(Progressive Web App) 지원으로 모바일 웹 접근성을 높이고, SEO(검색 엔진 최적화) 서비스를 별도로
+  구축하여 유기적 트래픽 유입 기반 마련
+
+
+결과 (Result):
+- [정성] 다중 AI Fallback 전략 도입을 통해 단일 모델 장애 시에도 서비스 중단 없는 가용성 확보
+- [정량] Vite 및 React 19 최신 스택 활용으로 기존 React 환경 대비 빌드 속도 및 초기 렌더링 성능 약 30% 향상
+- [정성] Centralized Error Handling 체계(GlobalExceptionHandler) 구축으로 에러 응답 표준화 및 사용자 친화적 에러
+  메시지 제공
+- [정량] Jenkins Credentials 기반 비밀 정보 관리로 소스 코드 내 보안 취약점 Zero 달성
+
+
+사용 기술:
+- Backend: Java 21, Spring Boot 3.2, Spring Data JPA, Spring Security, JWT, MySQL, JUnit 5, Gradle
+- Frontend: React 19, TypeScript, Vite, Tailwind CSS v4, TanStack Query, Zustand, PWA, SEO
+- AI/Cloud: Google Gemini AI, GLM-4, WebClient, Jenkins, Docker, Docker Compose, Nginx
+
 
 ---
 
