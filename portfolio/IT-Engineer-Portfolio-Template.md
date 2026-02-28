@@ -91,7 +91,7 @@ GitHub: https://github.com/SJaeYub
 - [ ] 2023.09 ~ 2025.09까지 2년간 트레이딩 적용 및 가이드 문서 작성하여 외부 고객들에게 서비스
 - [ ] https://www.notion.so/BlueFine-275d9865869c80ee99f9f53b34f40285?source=copy_link
 
-**사용 기술**: EC2, Jenkins, tomcat, AWS, GCP, VPC, 오픈 API, CloudWatch, Spring
+**사용 기술**: EC2, Jenkins, tomcat, AWS, GCP, VPC, 오픈 API, CloudWatch, Spring, React
 
 ---
 
