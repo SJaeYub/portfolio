@@ -6,7 +6,7 @@
 
 ```
 이름: 심재엽
-현재 직책: SRE/사내 협업시스템, 오픈소스 관리
+현재 직책: SRE/AA, 사내 협업시스템, 오픈소스 관리
 소속 회사: 케이뱅크
 경력 연수: 4년
 이메일: elapid0212@gmail.com
@@ -43,6 +43,7 @@ GitHub: https://github.com/SJaeYub
 - 오픈소스 관리: _Gitlab, Jenkins, Loki, Prometheus, Grafana, Nginx 등 사내 오픈소스 전체 관리 및 운영_
 - 컨테이너 플랫폼 관리: _사내 서비스 Dcoker, MSA 서비스 EKS 플랫폼 운영_
 - SRE: _케이뱅크 MSA 서비스 SRE 담당 alc DevOps 엔지니어 겸임_
+- AA: _사내 컨테이너 환경 아키텍처 설계 및 구현, 사내 개발용 표준 프레임워크 제공_
 - Confluence / Jira 관리: _전사 협업 시스템 관리자 및 애자일 배포 프로세스 구성_
 
 **주요 성과**:
