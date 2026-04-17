@@ -48,6 +48,32 @@ eBPF가 켜지면 NetworkPolicy를 커널 TC Ingress 훅에 부착된 eBPF 프�
                           └─► eBPF 바이트코드 → 커널 TC 훅에 부착
   ```
 
+- **ARP와 MAC 주소 교체 원리**:
+
+  패킷이 라우터를 넘어갈 때마다 dst MAC이 교체되는 이유는 MAC 주소가 같은 LAN 구간(브로드캐스트 도메인) 내에서만 의미를 갖기 때문이다. 라우터는 다음 홉의 MAC을 ARP로 조회해서 채워 넣고, 자신의 MAC을 src MAC으로 덮어쓴 뒤 전달한다. IP는 출발지에서 목적지까지 변하지 않지만 MAC은 각 구간마다 새로 쓰인다.
+
+  ```
+  [ARP 동작 원리]
+  클라이언트 → 게이트웨이로 보내려면:
+    1. "10.0.0.1(게이트웨이)의 MAC이 뭐야?" — ARP Request (브로드캐스트)
+    2. "내 MAC은 aa:bb:cc:dd:ee:ff" — ARP Reply (유니캐스트)
+    3. dst MAC = aa:bb:cc:dd:ee:ff 로 설정 후 전송
+
+  [구간별 IP·MAC 변화]
+  구간                src IP      dst IP       src MAC      dst MAC
+  ──────────────────────────────────────────────────────────────────
+  클라이언트 → GW     1.2.3.4    10.0.1.15   Client_MAC   GW_MAC
+  GW → NLB           1.2.3.4    10.0.1.15   GW_MAC       NLB_MAC
+  NLB → Node-1        1.2.3.4    10.0.1.15   NLB_MAC      Node1_MAC  ← Node-1이 수신
+  Node-1 veth → Pod   1.2.3.4    10.0.1.15   Node1_MAC    Pod_MAC
+
+  IP는 처음부터 끝까지 불변 / MAC은 구간마다 교체
+  ```
+
+  > VPC CNI 환경에서 EKS 파드 IP(10.0.1.15)는 VPC Secondary IP이므로
+  > AWS 네트워크가 이 IP를 직접 Node-1의 ENI MAC으로 연결해준다.
+  > 오버레이 CNI라면 여기서 VXLAN 캡슐화가 끼어든다.
+
 ---
 
 ## 3. 개념 설명 (Concept)
@@ -163,6 +189,79 @@ eni-A : 파드 A 전용 인터페이스 → 파드별 세밀한 NetworkPolicy �
         (라우팅 테이블 조회 후 어느 파드로 갈지 확정된 뒤 실행되므로 파드 특정 가능)
 ```
 
+#### 같은 노드 내 파드 간 통신 (Pod-to-Pod, Same Node)
+
+```
+[파드 A]  src:10.0.1.15  dst:10.0.1.16
+  eth0 (파드 A 측)
+      │
+      ▼
+  eni-A (호스트 측)
+[TC Egress 훅 on eni-A]  ← 파드 A 출발 방향 NetworkPolicy 검사
+      │ PASS
+      ▼
+[Node-1 L3 라우팅]
+  10.0.1.16 dev eni-B  → eni-B로 포워딩 결정
+      │
+      ▼
+[TC Ingress 훅 on eni-B]  ← 파드 B 도착 방향 NetworkPolicy 검사
+      │ PASS
+      ▼
+  eni-B (호스트 측)
+      │ veth pair 통과
+      ▼
+  eth0 (파드 B 측) → 파드 B 애플리케이션 ✅
+
+[핵심]
+- 패킷이 노드 밖으로 나가지 않고 호스트 네트워크 스택 안에서 처리
+- TC 훅이 Egress(출발) + Ingress(도착) 두 번 동작 → 양방향 정책 모두 적용
+- Sockmap 최적화: 동일 노드이면 TCP/IP 스택 전체를 타지 않고
+  소켓 레이어에서 데이터를 직접 복사(Short-circuit)하여 레이턴시 추가 단축
+```
+
+#### 다른 노드 간 파드 통신 (Pod-to-Pod, Cross-Node)
+
+```
+[파드 A, Node-1]  src:10.0.1.15  dst:10.0.2.20(파드 B, Node-2)
+
+  파드 A eth0
+      │ veth pair
+      ▼
+  eni-A (Node-1 호스트 측)
+[TC Egress 훅 on eni-A]  ← 출발 방향 NetworkPolicy 검사
+      │ PASS
+      ▼
+[Node-1 L3 라우팅]
+  10.0.2.20은 로컬 ENI에 없음 → eth0(VPC 게이트웨이)으로 전송
+      │
+      ▼
+[Node-1 eth0]  패킷 송신
+  ★ 캡슐화(VXLAN 등) 없음  ← VPC CNI 핵심 장점
+      │ VPC 물리 네트워크
+      ▼
+[VPC 라우터]
+  "10.0.2.20 → Node-2의 ENI에 있음"  → Node-2로 직접 전달
+      │
+      ▼
+[Node-2 eth0]  수신
+[TC Ingress 훅 on eth0]  ← Node-2 노드 레벨 체크
+      │
+      ▼
+[Node-2 L3 라우팅]
+  10.0.2.20 dev eni-B  → eni-B로 포워딩
+      │
+      ▼
+[TC Ingress 훅 on eni-B]  ← 파드 B 도착 방향 NetworkPolicy 검사
+      │ PASS
+      ▼
+  파드 B eth0 → 파드 B 애플리케이션 ✅
+
+[오버레이 CNI였다면]
+  Node-1 → VXLAN 캡슐화(UDP 8472) → Node-2 → 디캡슐화 → 파드 B
+  캡슐화/디캡슐화 CPU 오버헤드 + 헤더 오버헤드(50바이트 추가) 발생
+  VPC CNI는 이 과정이 완전히 생략됨 → 레이턴시·처리량 모두 유리
+```
+
 ### 3.4 구성 요소 / 핵심 용어 (Key Terms)
 
 | 용어 | 설명 | 비고 |
@@ -196,6 +295,42 @@ eni-A : 파드 A 전용 인터페이스 → 파드별 세밀한 NetworkPolicy �
 | **진단 도구** | iptables -L -n | bpftool, aws-eks-na-cli, PolicyEndpoints CRD |
 | **최소 요구 버전** | 모든 버전 | VPC CNI v1.14+, EKS 1.25+ |
 | **활성화 방법** | 기본값 | --enable-network-policy=true |
+
+> **eBPF 활성화 후에도 iptables가 완전히 제거되지 않는다.**
+> eBPF가 담당하는 것은 **NetworkPolicy 판단**뿐이다. 아래 역할은 eBPF 모드에서도 여전히 iptables가 수행한다.
+
+```
+[eBPF 모드에서도 iptables가 담당하는 역할]
+
+1. 아웃바운드 SNAT (파드 → 외부 인터넷)
+   파드 IP(10.0.1.15) → 노드 IP(10.0.1.5)로 소스 변환
+   규칙 위치: POSTROUTING 체인 (kube-proxy 또는 VPC CNI가 설치)
+   eBPF는 인바운드 허용/차단만 담당, 아웃바운드 SNAT은 Netfilter에 남음
+
+2. kube-proxy 서비스 규칙 (ClusterIP → 파드 IP DNAT)
+   kubectl에서 ClusterIP로 접근 시 실제 파드 IP로 DNAT
+   kube-proxy가 iptables PREROUTING/OUTPUT 체인에 규칙 기록
+   eBPF NetworkPolicy와 독립적으로 동작
+
+3. NodePort DNAT (Instance 모드 NLB 사용 시)
+   외부 → NodeIP:NodePort → 파드 IP:파드 포트로 변환
+   IP 모드 NLB를 사용하면 이 DNAT 단계가 생략됨
+
+[정리]
+eBPF ON  →  NetworkPolicy 판단: eBPF(TC 훅)
+            SNAT/DNAT/서비스 라우팅: 여전히 iptables(Netfilter)
+eBPF OFF →  모든 것: iptables
+```
+
+```bash
+# eBPF 모드에서도 iptables 규칙이 존재하는지 확인
+# (노드 SSH 접근 시)
+sudo iptables -t nat -L POSTROUTING -n --line-numbers | grep -i masquerade
+# AWS-SNAT-CHAIN 규칙이 보이면 VPC CNI의 아웃바운드 SNAT이 iptables로 동작 중
+
+sudo iptables -t nat -L PREROUTING -n | grep -i kube
+# KUBE-SERVICES 체인이 보이면 kube-proxy 서비스 규칙이 iptables에 존재
+```
 
 ### 4.2 VPC CNI vs Overlay CNI 비교
 
@@ -341,6 +476,63 @@ kubectl get ds aws-node -n kube-system \
 
 ---
 
+### 문제 2. NetworkPolicy 적용했는데 트래픽이 차단되지 않는 경우
+
+- **증상**: `kubectl apply -f networkpolicy.yaml` 후에도 차단되어야 할 트래픽이 계속 통과
+- **원인 후보**:
+  1. eBPF가 비활성화 상태(--enable-network-policy=false) → NetworkPolicy 자체가 무시됨
+  2. PolicyEndpoints CRD가 아직 생성되지 않음 (nodeagent 동기화 지연)
+  3. NetworkPolicy selector가 파드 레이블과 불일치
+  4. Egress 정책은 있는데 Ingress 정책이 누락되거나 반대의 경우
+- **해결**:
+  ```bash
+  # 1. eBPF 활성화 여부 먼저 확인
+  kubectl get ds aws-node -n kube-system \
+    -o jsonpath='{.spec.template.spec.containers[?(@.name=="aws-eks-nodeagent")].args}'
+
+  # 2. PolicyEndpoints 오브젝트가 실제로 생성됐는지 확인
+  kubectl get policyendpoints -A
+  # 비어 있으면 NetworkPolicy가 eBPF로 변환되지 않은 것
+
+  # 3. NetworkPolicy selector와 파드 레이블 비교
+  kubectl get networkpolicy <name> -o yaml | grep -A5 podSelector
+  kubectl get pod <pod-name> --show-labels
+
+  # 4. nodeagent 로그에서 정책 적용 기록 확인
+  kubectl logs -n kube-system <aws-node-파드> \
+    -c aws-eks-nodeagent | grep -i "policy\|enforce" | tail -20
+  ```
+- **교훈**: eBPF NetworkPolicy는 PolicyEndpoints CRD가 실제로 생성·반영되어야 효과가 있다. CRD 존재 여부가 정책 적용의 선행 조건이다.
+
+---
+
+### 문제 3. 파드가 스케줄되지 않고 Pending 상태로 멈추는 경우 (IP 고갈)
+
+- **증상**: 새 파드가 `Pending` 상태로 머물고, Events에 `insufficient pods` 또는 `Too many pods` 메시지
+- **원인**: 노드의 ENI Secondary IP가 모두 소진 → ipamd가 더 이상 IP를 제공할 수 없음
+- **해결**:
+  ```bash
+  # 1. 노드의 현재 파드 수와 max-pods 확인
+  kubectl get node <node-name> -o jsonpath='{.status.allocatable.pods}'
+  kubectl get pods --field-selector spec.nodeName=<node-name> -A | wc -l
+
+  # 2. ipamd 상태 확인 (aws-node 로그)
+  kubectl logs -n kube-system -l k8s-app=aws-node \
+    -c aws-node | grep -i "ip pool\|no available\|exhausted" | tail -20
+
+  # 3. warm pool 현황 확인
+  kubectl exec -n kube-system <aws-node-파드> \
+    -c aws-node -- /app/grpc-health-probe -addr=:11051
+
+  # 4. 노드 추가 또는 Prefix Delegation 활성화로 해결
+  # Prefix Delegation 활성화:
+  kubectl set env daemonset aws-node -n kube-system \
+    ENABLE_PREFIX_DELEGATION=true
+  ```
+- **교훈**: 운영 환경에서 노드당 파드 밀도를 높이려면 인스턴스 타입 선택 단계부터 ENI 슬롯 한계를 고려해야 한다. 고밀도 워크로드라면 Prefix Delegation을 처음부터 활성화하는 것이 권장된다.
+
+---
+
 ## 7. 실전 명령어 / 치트시트 (Cheat Sheet)
 
 ```bash
@@ -390,6 +582,56 @@ ip route | grep -E "10\.|eni"
 # TC 훅 부착 현황 (인터페이스별 eBPF 프로그램 확인)
 tc filter show dev eth0 ingress
 tc filter show dev eni-XXXXX ingress
+
+# ─────────────────────────────────────────────
+# [파드 간 통신 진단]
+# ─────────────────────────────────────────────
+
+# PolicyEndpoints 존재 및 내용 확인 (NetworkPolicy → eBPF 변환 여부)
+kubectl get policyendpoints -A
+kubectl describe policyendpoints -n <namespace> <name>
+
+# 같은 노드 파드 간 통신 - TC Egress 훅 확인
+# 파드 A의 veth 호스트측 인터페이스 이름 조회
+kubectl exec -n <ns> <pod-a> -- ip link show eth0
+# 노드에서 해당 veth의 TC 훅 확인
+tc filter show dev <eni-인터페이스명> egress
+tc filter show dev <eni-인터페이스명> ingress
+
+# ─────────────────────────────────────────────
+# [ENI / 파드 수 관련]
+# ─────────────────────────────────────────────
+
+# 노드당 최대 파드 수 확인
+kubectl get node <node-name> -o jsonpath='{.status.allocatable.pods}'
+
+# 현재 노드에 스케줄된 파드 수
+kubectl get pods --field-selector spec.nodeName=<node-name> -A | wc -l
+
+# Prefix Delegation 활성화 여부
+kubectl get ds aws-node -n kube-system \
+  -o jsonpath='{.spec.template.spec.containers[?(@.name=="aws-node")].env}' \
+  | python3 -m json.tool | grep -A2 PREFIX_DELEGATION
+
+# Prefix Delegation 활성화
+kubectl set env daemonset aws-node -n kube-system ENABLE_PREFIX_DELEGATION=true
+
+# ipamd IP 풀 상태 (warm pool, 가용 IP 확인)
+kubectl logs -n kube-system -l k8s-app=aws-node \
+  -c aws-node | grep -i "ip pool\|warm" | tail -20
+
+# ─────────────────────────────────────────────
+# [iptables 잔존 규칙 확인 (eBPF 모드에서도)]
+# ─────────────────────────────────────────────
+
+# 아웃바운드 SNAT 규칙 (VPC CNI)
+sudo iptables -t nat -L POSTROUTING -n | grep -i "masquerade\|snat"
+
+# kube-proxy 서비스 규칙 (ClusterIP DNAT)
+sudo iptables -t nat -L PREROUTING -n | grep -i kube
+
+# 전체 iptables 규칙 수 (규모 파악)
+sudo iptables-save | wc -l
 ```
 
 ---
@@ -496,6 +738,69 @@ Linux 호스트 라우팅 테이블 (ip route):
   0.0.0.0/0 via 10.0.1.1           ← 기본 게이트웨이
 ```
 
+#### ENI 슬롯 제한과 최대 파드 수 계산
+
+EC2 인스턴스 타입마다 연결 가능한 ENI 수와 ENI당 Secondary IP 수에 상한이 있다. 이 한계가 노드당 최대 파드 수를 직접 결정한다.
+
+```
+[기본 모드 계산 공식]
+max-pods = (ENI 수 - 1) × (ENI당 최대 IP - 1) + 2
+           ─────────────────────────────────────────
+           Primary ENI의 Primary IP는 노드 자신이 사용하므로 -1
+           나머지 Secondary IP들이 파드에 배분
+
+[인스턴스 타입별 예시]
+인스턴스 타입   ENI 수   ENI당 IP   max-pods (기본)
+──────────────────────────────────────────────────
+t3.small          3        4           11
+m5.large          3       10           29
+m5.xlarge         4       15           58
+m5.4xlarge        8       30          234
+c5.18xlarge      15       50          737
+
+[확인 방법]
+# AWS 문서: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html
+# 노드의 현재 설정 확인
+kubectl get node <node-name> -o jsonpath='{.status.allocatable.pods}'
+```
+
+#### Prefix Delegation으로 한계 돌파 (VPC CNI v1.11+)
+
+```
+[문제]
+m5.large = max 29 파드 → 고밀도 배치가 필요한 환경에서 병목
+
+[해결: Prefix Delegation]
+ENI의 Secondary IP 슬롯 하나에 IP 1개 대신 /28 prefix(16개 IP)를 할당
+→ 같은 ENI 슬롯 수로 최대 파드 수를 최대 16배까지 확장 가능
+
+[계산 공식 변경]
+max-pods = (ENI 수 - 1) × (ENI당 prefix 수) × 16 + 2
+
+[활성화 방법]
+# VPC CNI 설정 변경
+kubectl set env daemonset aws-node -n kube-system \
+  ENABLE_PREFIX_DELEGATION=true
+
+# 노드 그룹의 max-pods 값도 함께 조정 필요 (bootstrap.sh 또는 launch template)
+
+[주의사항]
+- EC2 인스턴스 타입이 Prefix Delegation을 지원해야 함
+- VPC 서브넷에 /28 블록을 할당할 수 있는 연속 IP 공간 필요
+- 사용하지 않는 IP도 예약된 것으로 처리 → VPC IP 소진 주의
+```
+
+```bash
+# 현재 Prefix Delegation 활성화 여부 확인
+kubectl get ds aws-node -n kube-system \
+  -o jsonpath='{.spec.template.spec.containers[?(@.name=="aws-node")].env}' \
+  | python3 -m json.tool | grep -A1 ENABLE_PREFIX
+
+# 노드별 ENI·IP 현황 확인 (aws-node 로그)
+kubectl logs -n kube-system -l k8s-app=aws-node \
+  -c aws-node | grep -i "eni\|ip pool" | tail -20
+```
+
 ### 8.5 버전별 차이
 
 | 버전 | 변경 내용 | 영향 |
@@ -527,15 +832,19 @@ args의 --enable-network-policy=true + PolicyEndpoints CRD 존재 + bpf-pin-path
 이 세 가지가 모두 있으면 현재 eBPF가 실제로 동작 중이라고 확신할 수 있다.
 ```
 
-**기억할 포인트 3가지:**
+**기억할 포인트 5가지:**
 1. TC Ingress 훅은 L2 직후, L3 이전에 위치 → DROP 시 이후 모든 커널 연산 생략 = eBPF의 효율 원천
 2. eBPF 활성화 여부는 컨테이너 존재가 아닌 `--enable-network-policy=true` args로 판단
 3. PolicyEndpoints CRD = eBPF 아키텍처의 구조적 증거 (iptables 모드에서는 존재 자체가 없음)
+4. eBPF가 켜져도 iptables는 완전히 사라지지 않는다 — SNAT(아웃바운드)·kube-proxy 서비스 규칙은 여전히 iptables
+5. ENI 슬롯 제한 = 노드당 최대 파드 수 결정 → 고밀도 환경은 Prefix Delegation(`/28`) 활성화 필수
 
 **다음에 헷갈릴 것 같은 부분:**
 - TC 훅이 eth0(노드 레벨)과 eniX(파드 레벨) 두 곳에 따로 있다는 점 — 라우팅 후 어느 파드인지 확정된 후에야 파드별 NetworkPolicy를 적용할 수 있기 때문
+- 같은 노드 파드 간 통신은 TC Egress + TC Ingress 두 번 검사 / 다른 노드 간은 VPC 라우터가 직접 처리 (캡슐화 없음)
 - MAC 주소는 구간마다 교체되지만 IP는 유지 → dst MAC = 다음 홉 MAC (최종 목적지 MAC이 아님)
 - VPC 라우팅 테이블(서브넷 단위) ≠ Linux 호스트 라우팅 테이블(노드 단위, ipamd가 수정)
+- NetworkPolicy를 적용해도 PolicyEndpoints CRD가 생성·반영되지 않으면 실제로 차단이 되지 않음
 
 ---
 
